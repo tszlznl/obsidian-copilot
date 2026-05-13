@@ -54,7 +54,9 @@ export class ChatViewLayout {
       if (!statusBar || !viewContent) return;
 
       // Zero out clearance and force reflow to measure natural overlap.
-      viewContent.style.setProperty("--copilot-status-bar-clearance", "0px");
+      // Remove any inline override left from a prior run so the CSS default
+      // (0px) applies and the resulting rect reflects the natural overlap.
+      viewContent.setCssProps({ "--copilot-status-bar-clearance": "" });
       const overlap =
         viewContent.getBoundingClientRect().bottom - statusBar.getBoundingClientRect().top;
 
@@ -67,10 +69,9 @@ export class ChatViewLayout {
       const s = getComputedStyle(statusBar);
       const hidden =
         s.display === "none" || s.visibility === "hidden" || parseFloat(s.opacity) === 0;
-      viewContent.style.setProperty(
-        "--copilot-status-bar-clearance",
-        `${hidden ? 0 : Math.ceil(overlap)}px`
-      );
+      viewContent.setCssProps({
+        "--copilot-status-bar-clearance": `${hidden ? 0 : Math.ceil(overlap)}px`,
+      });
     };
 
     syncClearance();
