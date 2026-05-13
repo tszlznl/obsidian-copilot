@@ -99,10 +99,6 @@ export default [
       // no-deprecated: defer — surface the warnings, but don't fail CI yet
       "@typescript-eslint/no-deprecated": "off",
 
-      // rule-custom-message wraps no-console; we don't enable no-console in this PR
-      // and the codebase enforces logInfo/logWarn/logError via CLAUDE.md.
-      "obsidianmd/rule-custom-message": "off",
-
       // SDL / import / no-unsanitized / depend: defer — review separately
       "@microsoft/sdl/no-inner-html": "off",
       "no-unsanitized/method": "off",
@@ -190,6 +186,15 @@ export default [
     files: ["**/package.json"],
     rules: {
       "depend/ban-dependencies": "off",
+    },
+  },
+
+  // logger.ts is the central logging utility and must call console.* directly.
+  // scripts/** are CLI tools that print to stdout.
+  {
+    files: ["src/logger.ts", "scripts/**"],
+    rules: {
+      "obsidianmd/rule-custom-message": "off",
     },
   },
 ];

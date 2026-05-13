@@ -5,7 +5,8 @@ import {
   SetChainOptions,
   setChainType,
 } from "@/aiParams";
-import ChainFactory, { ChainType, Document } from "@/chainFactory";
+import ChainFactory, { Document } from "@/chainFactory";
+import { ChainType } from "@/chainType";
 import { BUILTIN_CHAT_MODELS, USER_SENDER } from "@/constants";
 import {
   AutonomousAgentChainRunner,
@@ -249,8 +250,8 @@ export default class ChainManager {
 
         setChainType(ChainType.VAULT_QA_CHAIN);
         if (getSettings().debug) {
-          console.log("New Vault QA chain with hybrid retriever created for entire vault");
-          console.log("Set chain:", ChainType.VAULT_QA_CHAIN);
+          logInfo("New Vault QA chain with hybrid retriever created for entire vault");
+          logInfo("Set chain:", ChainType.VAULT_QA_CHAIN);
         }
         break;
       }

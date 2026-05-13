@@ -1,5 +1,5 @@
 import { getChainType } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
+import { ChainType } from "@/chainType";
 import { logError, logInfo } from "@/logger";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { App, MarkdownView, Platform, TAbstractFile, TFile } from "obsidian";
@@ -132,7 +132,7 @@ export class IndexEventHandler {
 
     this.debounceTimer = window.setTimeout(() => {
       if (getSettings().debug) {
-        console.log("Copilot Plus: Triggering reindex for file ", file.path);
+        logInfo("Copilot Plus: Triggering reindex for file ", file.path);
       }
       void this.indexOps.reindexFile(file).catch((err) => logError("reindexFile failed", err));
       this.debounceTimer = null;
