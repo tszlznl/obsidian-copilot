@@ -189,15 +189,16 @@ If your settings get into a bad state, you can reset:
 1. Go to **Settings → Copilot** → find the reset option
 2. Or delete the `data.json` file from the plugin folder: `.obsidian/plugins/copilot/data.json`
 
-⚠️ Resetting will delete all your settings including API keys. Back them up first.
+⚠️ Resetting clears all your settings. API keys kept in `data.json` (standard storage) are removed, but keys stored in the Obsidian Keychain are **not** — to erase those, use **Settings → Copilot → Advanced → API Key Storage → Delete All Keys**. Back up your keys first.
 
-### API Key Encryption
+### API Key Storage
 
-Copilot can encrypt your API keys at rest for added security.
+Copilot has two ways to store API keys:
 
-**Enable**: **Settings → Copilot → Advanced → Enable Encryption**
+- **Standard storage**: API keys are saved in `data.json` in plain text. Existing vaults stay in this mode until you choose to migrate.
+- **Obsidian Keychain**: New installs use this by default. You can also switch an existing vault by going to **Settings → Copilot → Advanced → API Key Storage** and clicking **Migrate to Obsidian Keychain**. After migration, `data.json` no longer contains your API keys.
 
-If you see strange authentication errors after enabling this, try disabling encryption and re-entering your keys.
+The Obsidian Keychain is per device. If you sync your vault to another device, you may need to re-enter API keys there.
 
 ### Debug Mode and Logs
 

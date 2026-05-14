@@ -97,7 +97,8 @@ export interface CopilotSettings {
   chatNoteContextTags: string[];
   enableIndexSync: boolean;
   debug: boolean;
-  enableEncryption: boolean;
+  /** @deprecated Removed — keychain is now the sole encryption mechanism. */
+  enableEncryption?: never;
   maxSourceChunks: number;
   enableInlineCitations: boolean;
   qaExclusions: string;
@@ -201,6 +202,22 @@ export interface CopilotSettings {
   autoCompactThreshold: number;
   /** Folder where converted document markdown files are saved */
   convertedDocOutputFolder: string;
+  /**
+   * When `true`, the OS keychain is the single source of truth for secrets;
+   * data.json must never contain plaintext secret values.
+   *
+   * Set on:
+   * - Fresh installs (no prior data.json) when keychain is available
+   * - User clicking "Migrate to Keychain" in Advanced Settings
+   * - `forgetAllSecrets` (after stripping disk + clearing keychain)
+   */
+  _keychainOnly?: boolean;
+  /**
+   * Stable namespace ID for keychain entries, persisted once on first use.
+   * Reason: using a persisted ID (instead of deriving from vault path) means
+   * renaming or moving the vault folder does not orphan keychain entries.
+   */
+  _keychainVaultId?: string;
 }
 
 export const settingsStore = createStore();
@@ -287,6 +304,15 @@ export function getSettings(): Readonly<CopilotSettings> {
 
 /**
  * Resets the settings to the default values.
+ *
+ * DESIGN NOTE — does NOT clear secrets from the Obsidian Keychain. Reset only
+ * rewrites `data.json` to defaults; a keychain-only vault keeps its OS keychain
+ * entries. "Delete All Keys" (Advanced Settings → API Key Storage, backed by
+ * `KeychainService.forgetAllSecrets`) is the dedicated path for erasing keychain
+ * secrets. Wiring that async transaction into this synchronous reset would pull
+ * the keychain service and its callbacks through `SettingsMainV2`, and is
+ * intentionally left out of the first-stage migration.
+ * If a future review flags this again, point them at this note.
  */
 export function resetSettings(): void {
   const defaultSettingsWithBuiltIns = {
@@ -322,6 +348,14 @@ export function useSettingsValue(): Readonly<CopilotSettings> {
 }
 
 /**
+ * Normalize persisted model provider values so identity keys stay stable across migrations.
+ * Reason: Legacy data may store "azure_openai" while runtime uses "azure-openai".
+ */
+export function normalizeModelProvider(provider: string): string {
+  return provider === "azure_openai" ? EmbeddingModelProviders.AZURE_OPENAI : provider;
+}
+
+/**
  * Sanitizes the settings to ensure they are valid.
  * Note: This will be better handled by Zod in the future.
  */
@@ -351,7 +385,7 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     settingsToSanitize.activeEmbeddingModels = settingsToSanitize.activeEmbeddingModels.map((m) => {
       return {
         ...m,
-        provider: m.provider === "azure_openai" ? EmbeddingModelProviders.AZURE_OPENAI : m.provider,
+        provider: normalizeModelProvider(m.provider),
       };
     });
   }
