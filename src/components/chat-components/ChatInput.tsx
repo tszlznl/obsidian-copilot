@@ -21,6 +21,7 @@ import {
 import { useSettingsValue } from "@/settings/model";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
+import { getFileIdentityKey } from "@/utils/fileListUtils";
 import { CornerDownLeft, Image, Loader2, StopCircle, X } from "lucide-react";
 import { App, Notice, TFile, TFolder } from "obsidian";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -745,13 +746,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
       {selectedImages.length > 0 && (
         <div className="selected-images">
           {selectedImages.map((file, index) => (
-            <div key={index} className="image-preview-container">
+            <div key={getFileIdentityKey(file)} className="image-preview-container">
               <img
                 src={URL.createObjectURL(file)}
                 alt={file.name}
                 className="selected-image-preview"
               />
               <button
+                type="button"
                 className="remove-image-button"
                 onClick={() => setSelectedImages((prev) => prev.filter((_, i) => i !== index))}
                 title="Remove image"

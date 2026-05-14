@@ -19,6 +19,8 @@ export interface MobileCardDropdownAction<T = object> {
   variant?: "default" | "destructive";
 }
 
+const EMPTY_DROPDOWN_ACTIONS: [] = [];
+
 export interface MobileCardProps<T extends object> {
   id: string;
   item: T;
@@ -53,7 +55,7 @@ export function MobileCard<T extends object>({
   defaultExpanded = false,
   expandedContent,
   primaryAction,
-  dropdownActions = [],
+  dropdownActions = EMPTY_DROPDOWN_ACTIONS,
   containerRef,
   className,
   onExpandToggle,
@@ -173,9 +175,9 @@ export function MobileCard<T extends object>({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" container={containerRef?.current}>
-                  {dropdownActions.map((action, index) => (
+                  {dropdownActions.map((action) => (
                     <DropdownMenuItem
-                      key={index}
+                      key={action.label}
                       onClick={(e) => {
                         e.stopPropagation();
                         void action.onClick(item);
