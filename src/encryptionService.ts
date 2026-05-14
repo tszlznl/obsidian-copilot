@@ -1,3 +1,10 @@
+// Reason: `buffer` is the npm polyfill (browser-compatible), bundled by
+// esbuild so the same Buffer code path works on desktop (Electron) and
+// mobile (WebView). Without this import, bare `Buffer` is undefined on
+// mobile and throws "Can't find variable: Buffer" — see PR #2443.
+// eslint-disable-next-line import/no-nodejs-modules
+import { Buffer } from "buffer";
+
 import { type CopilotSettings } from "@/settings/model";
 import { Platform } from "obsidian";
 
@@ -19,7 +26,11 @@ function getSafeStorage(): SafeStorage | null {
   return safeStorageInternal;
 }
 
-// Add new prefixes to distinguish encryption methods
+// Encryption-at-rest is deprecated as of this commit. `getEncryptedKey`
+// and `encryptAllKeys` are now no-ops, so new keys are saved plaintext.
+// We still decrypt legacy `enc_*` blobs at read time via `getDecryptedKey`
+// for backwards compatibility; existing keys migrate organically the next
+// time the user re-saves them.
 const DESKTOP_PREFIX = "enc_desk_";
 const WEBCRYPTO_PREFIX = "enc_web_";
 // Keep old prefix for backward compatibility
@@ -37,72 +48,25 @@ async function getEncryptionKey(): Promise<CryptoKey> {
   ]);
 }
 
+/**
+ * No-op: encryption-at-rest is deprecated. Returns settings unchanged.
+ * Existing encrypted keys (`enc_*`) stay in data.json and are decrypted at
+ * read time via getDecryptedKey for backwards compatibility. New keys are
+ * saved plaintext.
+ */
 export async function encryptAllKeys(
   settings: Readonly<CopilotSettings>
 ): Promise<Readonly<CopilotSettings>> {
-  if (!settings.enableEncryption) {
-    return settings;
-  }
-  const newSettings = { ...settings };
-  const keysToEncrypt = Object.keys(settings).filter(
-    (key) =>
-      key.toLowerCase().includes("apikey") ||
-      key === "plusLicenseKey" ||
-      key === "githubCopilotAccessToken" ||
-      key === "githubCopilotToken"
-  );
-
-  for (const key of keysToEncrypt) {
-    const apiKey = settings[key as keyof CopilotSettings] as string;
-    (newSettings[key as keyof CopilotSettings] as any) = await getEncryptedKey(apiKey);
-  }
-
-  if (Array.isArray(settings.activeModels)) {
-    newSettings.activeModels = await Promise.all(
-      settings.activeModels.map(async (model) => ({
-        ...model,
-        apiKey: await getEncryptedKey(model.apiKey || ""),
-      }))
-    );
-  }
-
-  if (Array.isArray(settings.activeEmbeddingModels)) {
-    newSettings.activeEmbeddingModels = await Promise.all(
-      settings.activeEmbeddingModels.map(async (model) => ({
-        ...model,
-        apiKey: await getEncryptedKey(model.apiKey || ""),
-      }))
-    );
-  }
-
-  return newSettings;
+  return settings;
 }
 
+/**
+ * No-op: encryption-at-rest is deprecated. Strips the `dec_` marker if
+ * present and returns the raw plaintext key.
+ */
 export async function getEncryptedKey(apiKey: string): Promise<string> {
-  if (!apiKey || apiKey.startsWith(ENCRYPTION_PREFIX)) {
-    return apiKey;
-  }
-
-  if (isDecrypted(apiKey)) {
-    apiKey = apiKey.replace(DECRYPTION_PREFIX, "");
-  }
-
-  try {
-    // Try desktop encryption first
-    if (getSafeStorage()?.isEncryptionAvailable()) {
-      const encryptedBuffer = getSafeStorage()!.encryptString(apiKey);
-      return DESKTOP_PREFIX + encryptedBuffer.toString("base64");
-    }
-
-    // Fallback to Web Crypto API
-    const key = await getEncryptionKey();
-    const encodedData = new TextEncoder().encode(apiKey);
-    const encryptedData = await crypto.subtle.encrypt(ALGORITHM, key, encodedData);
-    return WEBCRYPTO_PREFIX + arrayBufferToBase64(encryptedData);
-  } catch (error) {
-    console.error("Encryption failed:", error);
-    return apiKey;
-  }
+  if (!apiKey) return apiKey;
+  return isDecrypted(apiKey) ? apiKey.replace(DECRYPTION_PREFIX, "") : apiKey;
 }
 
 export async function getDecryptedKey(apiKey: string): Promise<string> {
@@ -113,8 +77,16 @@ export async function getDecryptedKey(apiKey: string): Promise<string> {
     return apiKey.replace(DECRYPTION_PREFIX, "");
   }
 
-  // Handle different encryption methods
+  // Handle different encryption methods (legacy data only — new keys are
+  // saved plaintext per the deprecation above).
   if (apiKey.startsWith(DESKTOP_PREFIX)) {
+    if (Platform.isMobile) {
+      throw new Error(
+        "An API key was encrypted on desktop with OS-level encryption that's " +
+          "unavailable on mobile. Please re-enter your API keys in Copilot " +
+          "settings on this device."
+      );
+    }
     const base64Data = apiKey.replace(DESKTOP_PREFIX, "");
     const buffer = Buffer.from(base64Data, "base64");
     return getSafeStorage()!.decryptString(buffer);
@@ -160,15 +132,6 @@ function isPlainText(key: string): boolean {
 
 function isDecrypted(keyBuffer: string): boolean {
   return keyBuffer.startsWith(DECRYPTION_PREFIX);
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return window.btoa(binary);
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
