@@ -95,8 +95,6 @@ export default [
 
       // --- Medium: promise / method ergonomics ---
       "@typescript-eslint/unbound-method": "off", // 68 violations
-      "@typescript-eslint/no-misused-promises": "off", // 46 violations
-      "@typescript-eslint/no-unnecessary-type-assertion": "off", // 40 violations
       "@typescript-eslint/no-floating-promises": "off", // 39 violations
 
       // --- Quick wins: small enough to fix and enable in a single PR ---
@@ -172,6 +170,14 @@ export default [
       "@typescript-eslint/no-empty-function": "off",
       "@typescript-eslint/ban-ts-comment": "off",
       "@typescript-eslint/no-unused-vars": ["error", { args: "none" }],
+      // checksVoidReturn relaxed for:
+      //   - attributes: async event handlers in JSX (onClick={async () => ...}) are
+      //     the standard React pattern; React already handles them correctly.
+      //   - inheritedMethods: Obsidian's Plugin.onload/onunload are commonly async.
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        { checksVoidReturn: { attributes: false, inheritedMethods: false } },
+      ],
       // TypeScript handles undefined-identifier detection (and does so cross-realm
       // correctly); per typescript-eslint's own guidance, disable no-undef on TS.
       "no-undef": "off",
