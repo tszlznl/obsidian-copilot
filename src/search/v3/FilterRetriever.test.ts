@@ -27,8 +27,17 @@ jest.mock("@/search/searchUtils", () => ({
   getMatchingPatterns: jest.fn().mockReturnValue({ inclusions: null, exclusions: null }),
 }));
 
+type MockApp = {
+  vault: {
+    getAbstractFileByPath: jest.Mock;
+    cachedRead: jest.Mock;
+    getMarkdownFiles: jest.Mock;
+  };
+  metadataCache: { getFileCache: jest.Mock };
+};
+
 describe("FilterRetriever", () => {
-  let mockApp: any;
+  let mockApp: MockApp;
 
   beforeEach(() => {
     const obsidianMock = getObsidianMock();
@@ -55,7 +64,7 @@ describe("FilterRetriever", () => {
       mockApp.vault.cachedRead.mockResolvedValue("Note content here");
       mockApp.metadataCache.getFileCache.mockReturnValue({ tags: [{ tag: "#test" }] });
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
       });
@@ -74,7 +83,7 @@ describe("FilterRetriever", () => {
       const extractNoteFiles = jest.requireMock("@/utils").extractNoteFiles as jest.Mock;
       extractNoteFiles.mockReturnValueOnce([]);
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
       });
@@ -101,7 +110,7 @@ describe("FilterRetriever", () => {
       });
       mockApp.vault.cachedRead.mockResolvedValue("Alpha content");
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["#project"],
         maxK: 30,
       });
@@ -131,7 +140,7 @@ describe("FilterRetriever", () => {
       });
       mockApp.vault.cachedRead.mockResolvedValue("Beta content");
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["#project"],
         maxK: 30,
       });
@@ -143,7 +152,7 @@ describe("FilterRetriever", () => {
     });
 
     it("should return empty when no tag terms present", async () => {
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["keyword1", "keyword2"],
         maxK: 30,
       });
@@ -168,7 +177,7 @@ describe("FilterRetriever", () => {
       });
       mockApp.vault.cachedRead.mockResolvedValue("Content");
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["#daily"],
         maxK: 3,
       });
@@ -193,7 +202,7 @@ describe("FilterRetriever", () => {
       });
       mockApp.vault.cachedRead.mockResolvedValue("Content");
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["#daily"],
         maxK: 3,
         returnAll: true,
@@ -224,7 +233,7 @@ describe("FilterRetriever", () => {
       });
       mockApp.vault.cachedRead.mockResolvedValue("Shared content");
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: ["#tag1"],
         maxK: 30,
       });
@@ -252,7 +261,7 @@ describe("FilterRetriever", () => {
       mockApp.vault.cachedRead.mockResolvedValue("Recent content");
       mockApp.metadataCache.getFileCache.mockReturnValue({ tags: [] });
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
         timeRange: {
@@ -289,7 +298,7 @@ describe("FilterRetriever", () => {
       mockApp.vault.cachedRead.mockResolvedValue("Content");
       mockApp.metadataCache.getFileCache.mockReturnValue({ tags: [] });
 
-      const retriever = new FilterRetriever(mockApp as App, {
+      const retriever = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
         timeRange: {
@@ -306,14 +315,14 @@ describe("FilterRetriever", () => {
     });
 
     it("should report hasTimeRange correctly", () => {
-      const withTime = new FilterRetriever(mockApp as App, {
+      const withTime = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
         timeRange: { startTime: 100, endTime: 200 },
       });
       expect(withTime.hasTimeRange()).toBe(true);
 
-      const withoutTime = new FilterRetriever(mockApp as App, {
+      const withoutTime = new FilterRetriever(mockApp as unknown as App, {
         salientTerms: [],
         maxK: 30,
       });

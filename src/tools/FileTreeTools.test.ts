@@ -168,7 +168,7 @@ describe("FileTreeTools", () => {
 
   it("should exclude files based on patterns", async () => {
     // Mock shouldIndexFile to exclude all files in projects folder
-    (searchUtils.shouldIndexFile as jest.Mock).mockImplementation((file) => {
+    (searchUtils.shouldIndexFile as jest.Mock).mockImplementation((file: { path: string }) => {
       return !file.path.includes("projects");
     });
 

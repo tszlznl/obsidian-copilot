@@ -736,8 +736,12 @@ describe("parseCustomCommandFile", () => {
   });
 
   it("uses EMPTY_COMMAND defaults if frontmatter is missing", async () => {
-    (window.app.vault as any).read.mockResolvedValue("Prompt content only, no frontmatter.");
-    (window.app.metadataCache as any).getFileCache.mockReturnValue({});
+    (window.app.vault as unknown as { read: jest.Mock }).read.mockResolvedValue(
+      "Prompt content only, no frontmatter."
+    );
+    (
+      window.app.metadataCache as unknown as { getFileCache: jest.Mock }
+    ).getFileCache.mockReturnValue({});
     const { parseCustomCommandFile } = await import("@/commands/customCommandUtils");
     const result = await parseCustomCommandFile(mockFile);
     expect(result).toEqual({

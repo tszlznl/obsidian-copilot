@@ -92,9 +92,31 @@ jest.mock("@/utils", () => ({
   }),
 }));
 
+type MockApp = {
+  vault: {
+    getAbstractFileByPath: jest.Mock;
+    createFolder: jest.Mock;
+    create: jest.Mock;
+    modify: jest.Mock;
+    read: jest.Mock;
+    getMarkdownFiles: jest.Mock;
+    adapter: {
+      exists: jest.Mock;
+      read: jest.Mock;
+      write: jest.Mock;
+      list: jest.Mock;
+      stat: jest.Mock;
+    };
+  };
+  metadataCache: { getFileCache: jest.Mock };
+  fileManager: { processFrontMatter: jest.Mock };
+};
+
+type MockMessageRepo = { getDisplayMessages: jest.Mock };
+
 describe("ChatPersistenceManager", () => {
-  let mockApp: any;
-  let mockMessageRepo: any;
+  let mockApp: MockApp;
+  let mockMessageRepo: MockMessageRepo;
   let persistenceManager: ChatPersistenceManager;
 
   beforeEach(() => {
@@ -133,8 +155,8 @@ describe("ChatPersistenceManager", () => {
 
     // Create persistence manager
     persistenceManager = new ChatPersistenceManager(
-      mockApp as App,
-      mockMessageRepo as MessageRepository
+      mockApp as unknown as App,
+      mockMessageRepo as unknown as MessageRepository
     );
   });
 
@@ -393,8 +415,8 @@ Nature's quiet song`);
       } as unknown as ChainManager;
 
       persistenceManager = new ChatPersistenceManager(
-        mockApp as App,
-        mockMessageRepo as MessageRepository,
+        mockApp as unknown as App,
+        mockMessageRepo as unknown as MessageRepository,
         chainManager
       );
       const mockFile = mockTFile({
@@ -1122,8 +1144,8 @@ ${formattedContent}`;
 
       // Recreate persistence manager with the updated mock
       const testPersistenceManager = new ChatPersistenceManager(
-        mockApp as App,
-        mockMessageRepo as MessageRepository
+        mockApp as unknown as App,
+        mockMessageRepo as unknown as MessageRepository
       );
 
       const originalMessages: ChatMessage[] = [

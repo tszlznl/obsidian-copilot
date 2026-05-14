@@ -82,12 +82,28 @@ const createContextResult = (content = "Hello with context") => ({
   contextEnvelope: undefined,
 });
 
+type MockChainManager = {
+  memoryManager: { clearChatMemory: jest.Mock };
+  runChain: jest.Mock;
+};
+type MockPlugin = {
+  app: {
+    workspace: { getActiveFile: jest.Mock };
+    vault?: { adapter?: { stat: jest.Mock } };
+  };
+  projectManager: {
+    getCurrentChainManager: jest.Mock;
+    getCurrentProjectId: jest.Mock;
+    getCachedMessages: jest.Mock;
+  };
+};
+
 describe("ChatManager", () => {
   let chatManager: ChatManager;
   let mockMessageRepo: jest.Mocked<MessageRepository>;
-  let mockChainManager: any;
-  let mockFileParserManager: any;
-  let mockPlugin: any;
+  let mockChainManager: MockChainManager;
+  let mockFileParserManager: object;
+  let mockPlugin: MockPlugin;
   let mockContextManager: jest.Mocked<ContextManager>;
 
   // Helper function to create mock messages
@@ -148,9 +164,9 @@ describe("ChatManager", () => {
 
     chatManager = new ChatManager(
       mockMessageRepo,
-      mockChainManager as ChainManager,
+      mockChainManager as unknown as ChainManager,
       mockFileParserManager as FileParserManager,
-      mockPlugin as CopilotPlugin
+      mockPlugin as unknown as CopilotPlugin
     );
   });
 

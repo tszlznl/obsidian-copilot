@@ -92,7 +92,7 @@ export default [
       // exemptions"). Remaining source files (≤5 violations each) were fixed in
       // this PR.
       "@typescript-eslint/no-unsafe-assignment": "off", // enabled for tests below; follow-up PR for production
-      "@typescript-eslint/no-unsafe-call": "off", // 679 violations
+      "@typescript-eslint/no-unsafe-call": "off", // 107 violations
 
       // --- Medium: promise / method ergonomics ---
       // Enabled in the TS-only block below.

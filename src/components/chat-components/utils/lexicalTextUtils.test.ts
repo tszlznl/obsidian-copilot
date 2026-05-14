@@ -2,6 +2,8 @@ import { parseTextForPills } from "./lexicalTextUtils";
 import { TFile } from "obsidian";
 import { mockTFolder } from "@/__tests__/mockObsidian";
 
+const MockTFile = TFile as unknown as jest.Mock;
+
 // Mock dependencies
 jest.mock("@/logger", () => ({
   logInfo: jest.fn(),
@@ -68,7 +70,7 @@ describe("parseTextForPills", () => {
       });
 
       // Mock TFile constructor to set properties
-      (TFile as any).mockImplementation(function (this: any) {
+      MockTFile.mockImplementation(function (this: any) {
         this.basename = "Valid Note";
         this.path = "Valid Note.md";
       });
@@ -277,7 +279,7 @@ describe("parseTextForPills", () => {
         return null;
       });
 
-      (TFile as any).mockImplementation(function (this: any) {
+      MockTFile.mockImplementation(function (this: any) {
         this.basename = "Test Note";
         this.path = "Test Note.md";
       });
