@@ -28,6 +28,7 @@ import {
   persistSettings,
   loadSettingsWithKeychain,
   flushPersistence,
+  resetPersistenceState,
 } from "@/services/settingsPersistence";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
 import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/promptPayloadRecorder";
@@ -105,6 +106,16 @@ export default class CopilotPlugin extends Plugin {
   private webSelectionTracker?: WebSelectionTracker;
   private readonly chatHistoryLastAccessedAtManager = new RecentUsageManager<string>();
   async onload(): Promise<void> {
+    // Reason: clear stale module-level persistence state + KeychainService
+    // singleton left over from a previous plugin lifecycle in the same
+    // process (disable→enable, dev hot reload, "Open another vault" without
+    // restart). Doing this at the START of onload (instead of at the end of
+    // onunload) avoids a race: onunload is fire-and-forget from Obsidian's
+    // perspective, so its `await flushPersistence()` continuation can fire
+    // AFTER the next onload has already initialized — and would then null
+    // out the new instance, breaking saves until another full reload.
+    resetPersistenceState();
+    KeychainService.resetInstance();
     KeychainService.getInstance(this.app);
     await this.loadSettings();
     this.settingsUnsubscriber = subscribeToSettingsChange((prev, next) => {
@@ -260,6 +271,9 @@ export default class CopilotPlugin extends Plugin {
     // Best-effort flush of pending keychain/data.json writes.
     // Reason: onunload() is void in Obsidian's type system, but awaiting here
     // is no worse than fire-and-forget, and consistent with the log flush below.
+    // (Module-level state + KeychainService singleton reset happen at the
+    // START of the next onload, not here — see comment in onload above for
+    // the late-write race that motivated the move.)
     await flushPersistence();
 
     // Clear all persistent selection highlights before unload
