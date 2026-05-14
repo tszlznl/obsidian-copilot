@@ -772,8 +772,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   // Event listener for abort stream events
   useEffect(() => {
-    const handleAbortStream = (event: CustomEvent) => {
-      const reason = (event.detail?.reason as ABORT_REASON | undefined) || ABORT_REASON.NEW_CHAT;
+    const handleAbortStream = (event: CustomEvent<{ reason?: ABORT_REASON }>) => {
+      const reason = event.detail?.reason || ABORT_REASON.NEW_CHAT;
       handleStopGenerating(reason);
     };
 

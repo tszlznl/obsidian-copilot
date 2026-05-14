@@ -920,35 +920,37 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
     if (message.content) {
       return (
         <div className="tw-flex tw-flex-col tw-gap-3">
-          {message.content.map((item, index) => {
-            if (item.type === "text") {
-              return (
-                <div key={index}>
-                  {message.sender === USER_SENDER ? (
-                    <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
-                      {message.message}
-                    </div>
-                  ) : (
-                    <div
-                      ref={contentRef}
-                      className={message.isErrorMessage ? "tw-text-error" : ""}
-                    ></div>
-                  )}
-                </div>
-              );
-            } else if (item.type === "image_url") {
-              return (
-                <div key={index} className="message-image-content">
-                  <img
-                    src={item.image_url.url}
-                    alt="User uploaded image"
-                    className="chat-message-image"
-                  />
-                </div>
-              );
+          {(message.content as Array<{ type: string; image_url?: { url: string } }>).map(
+            (item, index) => {
+              if (item.type === "text") {
+                return (
+                  <div key={index}>
+                    {message.sender === USER_SENDER ? (
+                      <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
+                        {message.message}
+                      </div>
+                    ) : (
+                      <div
+                        ref={contentRef}
+                        className={message.isErrorMessage ? "tw-text-error" : ""}
+                      ></div>
+                    )}
+                  </div>
+                );
+              } else if (item.type === "image_url") {
+                return (
+                  <div key={index} className="message-image-content">
+                    <img
+                      src={item.image_url!.url}
+                      alt="User uploaded image"
+                      className="chat-message-image"
+                    />
+                  </div>
+                );
+              }
+              return null;
             }
-            return null;
-          })}
+          )}
         </div>
       );
     }

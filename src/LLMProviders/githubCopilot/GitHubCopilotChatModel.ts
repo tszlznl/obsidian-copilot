@@ -25,7 +25,7 @@ function normalizeDeltaContent(content: unknown): string {
   if (content == null) return "";
   if (Array.isArray(content)) {
     return content
-      .map((part): string => {
+      .map((part: unknown): string => {
         if (typeof part === "string") return part;
         if (
           part &&
@@ -38,7 +38,7 @@ function normalizeDeltaContent(content: unknown): string {
       })
       .join("");
   }
-  if (typeof content === "object" && typeof (content as any).text === "string") {
+  if (typeof content === "object" && typeof (content as { text?: unknown }).text === "string") {
     return (content as { text: string }).text;
   }
   return "";
