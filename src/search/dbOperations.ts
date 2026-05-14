@@ -368,7 +368,7 @@ export class DBOperations {
     };
   }
 
-  async upsert(docToSave: any): Promise<unknown> {
+  async upsert(docToSave: OramaDocument): Promise<unknown> {
     if (!this.oramaDb) throw new Error("DB not initialized");
     const db = this.oramaDb;
 
@@ -400,7 +400,7 @@ export class DBOperations {
           );
 
           this.markUnsavedChanges();
-          return docToSave as unknown;
+          return docToSave;
         } catch (insertErr) {
           logError(
             `Failed to ${existingDoc.hits.length > 0 ? "update" : "insert"} document ${docToSave.id}:`,
