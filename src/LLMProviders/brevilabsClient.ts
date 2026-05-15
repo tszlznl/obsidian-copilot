@@ -4,8 +4,86 @@ import { MissingPlusLicenseError } from "@/error";
 import { logInfo } from "@/logger";
 import { turnOffPlus, turnOnPlus } from "@/plusUtils";
 import { getSettings } from "@/settings/model";
-import { safeFetchNoThrow } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
+import { requestUrl } from "obsidian";
+
+/**
+ * Build a multipart/form-data body buffer from a FormData instance.
+ * Returned as an ArrayBuffer suitable for passing to Obsidian's requestUrl.
+ *
+ * @param formData - FormData containing strings and/or File/Blob entries.
+ * @returns The serialized multipart body and the Content-Type header (including boundary).
+ */
+async function buildMultipartFromFormData(
+  formData: FormData
+): Promise<{ body: ArrayBuffer; contentType: string }> {
+  const boundary = `----CopilotBoundary${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+  const encoder = new TextEncoder();
+  const parts: Uint8Array[] = [];
+
+  for (const [name, value] of formData.entries()) {
+    parts.push(encoder.encode(`--${boundary}\r\n`));
+    if (value instanceof Blob) {
+      const filename = value instanceof File ? value.name : "blob";
+      const contentType = value.type || "application/octet-stream";
+      parts.push(
+        encoder.encode(
+          `Content-Disposition: form-data; name="${name}"; filename="${filename}"\r\n` +
+            `Content-Type: ${contentType}\r\n\r\n`
+        )
+      );
+      const buf = await value.arrayBuffer();
+      parts.push(new Uint8Array(buf));
+      parts.push(encoder.encode("\r\n"));
+    } else {
+      parts.push(encoder.encode(`Content-Disposition: form-data; name="${name}"\r\n\r\n`));
+      parts.push(encoder.encode(String(value)));
+      parts.push(encoder.encode("\r\n"));
+    }
+  }
+  parts.push(encoder.encode(`--${boundary}--\r\n`));
+
+  const totalLength = parts.reduce((sum, p) => sum + p.byteLength, 0);
+  const out = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.byteLength;
+  }
+  return {
+    body: out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
+
+/**
+ * Normalize a requestUrl response into the {data, error} shape used by Brevilabs API methods.
+ * Handles the case where `response.json` is a raw string (non-JSON body, e.g. HTML error page).
+ */
+function parseBrevilabsResponse<T>(
+  response: { status: number; json: unknown },
+  endpoint: string
+): { data: T | null; error?: Error } {
+  let data: unknown = response.json;
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      // Non-JSON body — fall through to status-based error.
+    }
+  }
+  if (response.status < 200 || response.status >= 300) {
+    const detail = (data as { detail?: { reason?: string; error?: string } } | null)?.detail;
+    if (detail?.reason) {
+      const error = new Error(detail.reason);
+      if (detail.error) error.name = detail.error;
+      return { data: null, error };
+    }
+    return { data: null, error: new Error(`HTTP error: ${response.status}`) };
+  }
+  logInfo(`[API ${endpoint} request]:`, data);
+  return { data: data as T };
+}
 
 export interface RerankResponse {
   response: {
@@ -123,25 +201,14 @@ export class BrevilabsClient {
     if (!excludeAuthHeader) {
       headers.Authorization = `Bearer ${await getDecryptedKey(getSettings().plusLicenseKey)}`;
     }
-    const response = await safeFetchNoThrow(url.toString(), {
+    const response = await requestUrl({
+      url: url.toString(),
       method,
       headers,
       ...(method === "POST" && { body: JSON.stringify(body) }),
+      throw: false,
     });
-    const data = await response.json();
-    if (!response.ok) {
-      try {
-        const errorDetail = data.detail;
-        const error = new Error(errorDetail.reason as string);
-        error.name = errorDetail.error as string;
-        return { data: null, error };
-      } catch {
-        return { data: null, error: new Error("Unknown error") };
-      }
-    }
-    logInfo(`[API ${endpoint} request]:`, data);
-
-    return { data };
+    return parseBrevilabsResponse<T>(response, endpoint);
   }
 
   private async makeFormDataRequest<T>(
@@ -159,29 +226,21 @@ export class BrevilabsClient {
     const url = new URL(`${BREVILABS_API_BASE_URL}${endpoint}`);
 
     try {
-      const response = await fetch(url.toString(), {
+      // Build multipart body manually for requestUrl (does not natively support FormData).
+      const { body, contentType } = await buildMultipartFromFormData(formData);
+
+      const response = await requestUrl({
+        url: url.toString(),
         method: "POST",
         headers: {
-          // No Content-Type header - browser will set it automatically with boundary
+          "Content-Type": contentType,
           Authorization: `Bearer ${await getDecryptedKey(getSettings().plusLicenseKey)}`,
           "X-Client-Version": this.pluginVersion,
         },
-        body: formData,
+        body,
+        throw: false,
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        try {
-          const errorDetail = data.detail;
-          const error = new Error(errorDetail.reason as string);
-          error.name = errorDetail.error as string;
-          return { data: null, error };
-        } catch {
-          return { data: null, error: new Error(`HTTP error: ${response.status}`) };
-        }
-      }
-      logInfo(`[API ${endpoint} form-data request]:`, data);
-      return { data };
+      return parseBrevilabsResponse<T>(response, `${endpoint} form-data`);
     } catch (error) {
       return { data: null, error: error instanceof Error ? error : new Error(String(error)) };
     }
