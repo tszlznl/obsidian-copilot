@@ -177,13 +177,7 @@ export class BedrockChatModel extends BaseChatModel<BedrockChatModelCallOptions>
     return tools.map((tool) => {
       let inputSchema: Record<string, unknown> = { type: "object", properties: {} };
       if (tool.schema) {
-        // Use LangChain's schema conversion utilities. The result is cast via `unknown`
-        // because `toJsonSchema` returns a `JsonSchema7Type` union without an index
-        // signature, which TypeScript cannot directly assign to `Record<string, unknown>`.
-        const converted: unknown = isInteropZodSchema(tool.schema)
-          ? toJsonSchema(tool.schema)
-          : tool.schema;
-        inputSchema = converted as Record<string, unknown>;
+        inputSchema = isInteropZodSchema(tool.schema) ? toJsonSchema(tool.schema) : tool.schema;
       }
       return {
         name: tool.name,
@@ -1479,12 +1473,19 @@ export class BedrockChatModel extends BaseChatModel<BedrockChatModelCallOptions>
     // Handle thinking mode for Claude models
     // Only enable if user has explicitly enabled REASONING capability for this model
     if (this.enableThinking) {
-      // Enable thinking mode for Claude models on Bedrock
-      // This allows the model to generate reasoning tokens
-      payload.thinking = {
-        type: "enabled",
-        budget_tokens: 2048,
-      };
+      // claude-opus-4-7+ rejects { type: "enabled", budget_tokens } with a 400 and requires
+      // { type: "adaptive" }. Unanchored match because Bedrock IDs include provider/profile
+      // prefixes (e.g. "global.anthropic.claude-opus-4-7-20260115-v1:0"). Constrain the minor
+      // to 1-2 digits followed by a delimiter so dated snapshot IDs like
+      // "claude-opus-4-20250514-v1:0" aren't misread as Opus 4.20250514.
+      const opusMinorMatch = this.modelName.match(/claude-opus-4-(\d{1,2})(?:[-.]|$)/);
+      const usesAdaptiveThinking = opusMinorMatch ? parseInt(opusMinorMatch[1], 10) >= 7 : false;
+      // Opus 4.7+ defaults thinking.display to "omitted" so thinking summaries
+      // never reach the UI; force "summarized" for the adaptive branch. Pre-4.7
+      // models default to "summarized" server-side.
+      payload.thinking = usesAdaptiveThinking
+        ? { type: "adaptive", display: "summarized" }
+        : { type: "enabled", budget_tokens: 2048 };
       // When thinking is enabled, temperature must be 1
       // https://docs.claude.com/en/docs/build-with-claude/extended-thinking#important-considerations-when-using-extended-thinking
       payload.temperature = 1;

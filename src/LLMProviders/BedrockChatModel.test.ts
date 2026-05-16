@@ -22,7 +22,9 @@ type ImageContent = {
 } | null;
 
 type RequestBody = {
-  thinking?: { type: string; budget_tokens: number };
+  thinking?:
+    | { type: "enabled"; budget_tokens: number }
+    | { type: "adaptive"; display?: "summarized" | "omitted" };
   temperature?: number;
   anthropic_version?: string;
   messages: Array<{
@@ -77,13 +79,15 @@ const buildEventStreamChunk = (payload: string): string => {
   return Buffer.from(buffer).toString("base64");
 };
 
-const createModel = (enableThinking = false): BedrockChatModel =>
+const createModel = (
+  enableThinking = false,
+  modelId = "anthropic.claude-3-haiku-20240307-v1:0"
+): BedrockChatModel =>
   new BedrockChatModel({
-    modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+    modelId,
     apiKey: "test-key",
-    endpoint: "https://example.com/model/anthropic.claude-3-haiku-20240307-v1%3A0/invoke",
-    streamEndpoint:
-      "https://example.com/model/anthropic.claude-3-haiku-20240307-v1%3A0/invoke-with-response-stream",
+    endpoint: `https://example.com/model/${encodeURIComponent(modelId)}/invoke`,
+    streamEndpoint: `https://example.com/model/${encodeURIComponent(modelId)}/invoke-with-response-stream`,
     anthropicVersion: "bedrock-2023-05-31",
     enableThinking,
     fetchImplementation: jest.fn(),
@@ -454,6 +458,68 @@ describe("BedrockChatModel streaming decode", () => {
 
       expect(requestBody.temperature).toBe(1);
       expect(requestBody.thinking).toBeDefined();
+    });
+
+    it("uses adaptive thinking with summarized display for claude-opus-4-7", () => {
+      const model = createModel(true, "anthropic.claude-opus-4-7-20260115-v1:0");
+      const requestBody = asInternal(model).buildRequestBody([
+        { role: "user", content: "test", getType: () => "human" },
+      ]);
+
+      expect(requestBody.thinking).toEqual({ type: "adaptive", display: "summarized" });
+      expect(requestBody.temperature).toBe(1);
+    });
+
+    it("uses adaptive thinking for opus-4-7 cross-region inference profiles", () => {
+      const model = createModel(true, "global.anthropic.claude-opus-4-7-20260115-v1:0");
+      const requestBody = asInternal(model).buildRequestBody([
+        { role: "user", content: "test", getType: () => "human" },
+      ]);
+
+      expect(requestBody.thinking).toEqual({ type: "adaptive", display: "summarized" });
+    });
+
+    it("keeps legacy thinking for opus-4-6 and earlier", () => {
+      const model = createModel(true, "anthropic.claude-opus-4-6-20250115-v1:0");
+      const requestBody = asInternal(model).buildRequestBody([
+        { role: "user", content: "test", getType: () => "human" },
+      ]);
+
+      expect(requestBody.thinking).toEqual({ type: "enabled", budget_tokens: 2048 });
+    });
+
+    it("keeps legacy thinking for sonnet-4 and 3-7-sonnet", () => {
+      const sonnet45 = createModel(true, "anthropic.claude-sonnet-4-5-20250929-v1:0");
+      expect(
+        asInternal(sonnet45).buildRequestBody([
+          { role: "user", content: "test", getType: () => "human" },
+        ]).thinking
+      ).toEqual({ type: "enabled", budget_tokens: 2048 });
+
+      const sonnet37 = createModel(true, "anthropic.claude-3-7-sonnet-20250219-v1:0");
+      expect(
+        asInternal(sonnet37).buildRequestBody([
+          { role: "user", content: "test", getType: () => "human" },
+        ]).thinking
+      ).toEqual({ type: "enabled", budget_tokens: 2048 });
+    });
+
+    it("keeps legacy thinking for dated Opus 4.0 snapshot IDs", () => {
+      // anthropic.claude-opus-4-20250514-v1:0 is the dated snapshot of Opus 4.0, not 4.20250514.
+      const opus40 = createModel(true, "anthropic.claude-opus-4-20250514-v1:0");
+      expect(
+        asInternal(opus40).buildRequestBody([
+          { role: "user", content: "test", getType: () => "human" },
+        ]).thinking
+      ).toEqual({ type: "enabled", budget_tokens: 2048 });
+
+      // anthropic.claude-opus-4-1-20250805-v1:0 is dated 4.1, not adaptive.
+      const opus41 = createModel(true, "anthropic.claude-opus-4-1-20250805-v1:0");
+      expect(
+        asInternal(opus41).buildRequestBody([
+          { role: "user", content: "test", getType: () => "human" },
+        ]).thinking
+      ).toEqual({ type: "enabled", budget_tokens: 2048 });
     });
   });
 

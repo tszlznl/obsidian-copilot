@@ -201,7 +201,7 @@ export default class ChatModelManager {
 
     const modelName = customModel.name;
     const modelInfo = getModelInfo(modelName);
-    const { isThinkingEnabled } = modelInfo;
+    const { isThinkingEnabled, usesAdaptiveThinking } = modelInfo;
     const resolvedTemperature = this.getTemperatureForModel(modelInfo, customModel, settings);
     const maxTokens = customModel.maxTokens ?? settings.maxTokens;
 
@@ -248,10 +248,15 @@ export default class ChatModelManager {
           fetch: customModel.enableCors ? safeFetch : undefined,
         },
         ...(isThinkingEnabled && {
-          thinking: {
-            type: "enabled",
-            budget_tokens: ChatModelManager.ANTHROPIC_THINKING_BUDGET_TOKENS,
-          },
+          // Opus 4.7+ defaults thinking.display to "omitted" so thinking summaries
+          // never reach the UI; force "summarized" for the adaptive branch. Pre-4.7
+          // models default to "summarized" server-side and don't need this.
+          thinking: usesAdaptiveThinking
+            ? { type: "adaptive" as const, display: "summarized" as const }
+            : {
+                type: "enabled" as const,
+                budget_tokens: ChatModelManager.ANTHROPIC_THINKING_BUDGET_TOKENS,
+              },
         }),
       },
       [ChatModelProviders.AZURE_OPENAI]: await (async (): Promise<Record<string, unknown>> => {
